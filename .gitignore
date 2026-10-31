@@ -1,0 +1,27 @@
+# ---- .NET 构建产物 ----
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.userprefs
+
+# ---- 发布与打包中间产物（MSI/ZIP 走 GitHub Release，不进 git）----
+build/
+dist/
+
+# ---- 前端图标源：只保留 package.json / lock，node_modules 不进 ----
+tools/icons-src/node_modules/
+
+# ---- Python 缓存 ----
+tools/__pycache__/
+*.pyc
+
+# ---- 开发过程截图与临时素材（保留脚本，不保留 png 过程图）----
+tools/*.png
+!tools/art-banner.png
+!tools/art-dialog.png
+
+# ---- 本机调试残留 ----
+*.local
+*.log

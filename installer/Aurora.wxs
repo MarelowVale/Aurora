@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Aurora 安装包（WiX v6 / MSI）
+
+  构建：
+    .\build\tools\wix.exe build installer\Aurora.wxs -arch x64 `
+        -d PublishDir=build\publish -o build\Aurora-1.0.0-x64.msi
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="Aurora 文件管理器"
+           Manufacturer="Aurora"
+           Version="1.0.0"
+           UpgradeCode="7C4E1B62-9A5D-4F3E-B1C8-2D6A0E5F3B47"
+           Scope="perUserOrMachine"
+           Compressed="yes"
+           Language="2052">
+
+    <SummaryInformation Description="Aurora 文件管理器 安装程序"
+                        Manufacturer="Aurora" />
+
+    <!-- 同版本可直接覆盖安装，低版本需要先卸载 -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="已安装更高版本的 Aurora，请先卸载后再安装。" />
+
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="AppIcon" SourceFile="..\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPCONTACT" Value="Aurora" />
+    <Property Id="ARPCOMMENTS" Value="为 D 盘打造的 macOS 风格文件管理器" />
+
+    <!--
+      不设 LaunchCondition：本机 msiexec 把 VersionNT 报成 603（Windows 8.1），
+      用 >=1000 去判断会误杀正常安装；程序自带 .NET 运行时，缺 WebView2 时
+      启动会给出提示，不做安装期拦截。
+    -->
+
+    <Feature Id="Main" Title="Aurora 文件管理器" Level="1" Display="expand" AllowAbsent="no">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="EULA.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="dialog.bmp" />
+
+    <!-- 让“应用和功能”里显示安装位置，并支持从那里直接修复/卸载 -->
+    <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLFOLDER]" After="CostFinalize" Sequence="execute" />
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Aurora" />
+    </StandardDirectory>
+
+    <!-- 整个 publish 目录打进安装包，目录结构自动展开 -->
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="!(bindpath.publish)\**" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut" Guid="9E2B7A31-4C6D-4E8F-A5B2-1D3C7E9F0A62">
+        <Shortcut Id="StartMenuLink"
+                  Name="Aurora"
+                  Description="Aurora 文件管理器"
+                  Target="[INSTALLFOLDER]Aurora.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKCU" Key="Software\Aurora" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="3B8D5C27-6F1A-4B9E-8C40-5E2A7D6B9F13">
+        <Shortcut Id="DesktopLink"
+                  Name="Aurora"
+                  Description="Aurora 文件管理器"
+                  Target="[INSTALLFOLDER]Aurora.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKCU" Key="Software\Aurora" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+  </Fragment>
+
+</Wix>
