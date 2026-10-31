@@ -1443,3 +1443,187 @@ mark { background: rgba(255, 214, 10, .32); color: inherit; border-radius: 2px; 
   font-weight: 600;
 }
 .crumb.gap:hover { background: var(--hover); color: var(--text-2); }
+/* ==================================================================
+   动效层：窗口出现/还原、内容入场、悬停与按下的阻尼感
+   设计原则：
+   - 只用 transform / opacity / filter，避免触发布局重排
+   - 回弹用 --sp（轻微过冲），离开用 --ease-out（不拖泥带水）
+   - 单个元素动效 ≤ 320ms，批量入场用 16ms 递进，最多 12 档
+   ================================================================== */
+:root {
+  --sp: cubic-bezier(.34, 1.42, .64, 1);        /* 有阻尼的回弹 */
+  --sp-soft: cubic-bezier(.22, 1.12, .36, 1);   /* 轻微回弹 */
+  --ease-out: cubic-bezier(.22, .61, .36, 1);
+  --ease-in: cubic-bezier(.42, 0, .68, .4);
+  --t1: 150ms;
+  --t2: 240ms;
+  --t3: 320ms;
+}
+
+/* ---------- 窗口：出现、还原、最小化 ---------- */
+#app.in { animation: appIn var(--t3) var(--sp) backwards; }
+@keyframes appIn {
+  from { opacity: 0; transform: translateY(10px) scale(.982); }
+  to   { opacity: 1; transform: none; }
+}
+
+#app.restoring { animation: appRestore 300ms var(--sp) backwards; }
+@keyframes appRestore {
+  from { opacity: 0; transform: scale(.968); }
+  to   { opacity: 1; transform: none; }
+}
+
+#app.collapsing {
+  animation: appCollapse 175ms var(--ease-in) forwards;
+  pointer-events: none;
+}
+@keyframes appCollapse {
+  to { opacity: 0; transform: scale(.94) translateY(8px); }
+}
+
+/* ---------- 内容入场 ---------- */
+.cell.anim,
+.row.anim,
+.lhead.anim,
+.empty.anim {
+  animation: itemIn var(--t3) var(--sp) backwards;
+  animation-delay: calc(var(--i, 0) * 16ms);
+}
+@keyframes itemIn {
+  from { opacity: 0; transform: translateY(10px) scale(.988); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- 网格：悬停抬升、按下回弹、图标轻微放大 ---------- */
+.cell {
+  transition: transform var(--t1) var(--sp-soft),
+              background-color var(--t1) linear,
+              box-shadow var(--t1) var(--ease-out);
+}
+.cell:hover { transform: translateY(-2px); }
+.cell:active { transform: translateY(0) scale(.985); }
+.cell .thumb svg,
+.cell .thumb .ti { transition: transform var(--t2) var(--sp-soft); }
+.cell:hover .thumb svg,
+.cell:hover .thumb .ti { transform: scale(1.045); }
+.cell.pop { animation: cellPop 190ms var(--sp); }
+@keyframes cellPop {
+  50% { transform: scale(1.028); }
+}
+
+/* ---------- 列表行 ---------- */
+.row { transition: background-color 120ms linear; }
+
+/* ---------- 标题栏交通灯：悬停亮起 + 按下缩小 ---------- */
+.light { transition: transform var(--t1) var(--sp), filter var(--t1) linear; }
+.light svg { opacity: 0; transition: opacity var(--t1) linear; }
+.traffic:hover .light svg { opacity: 1; }
+.light:active { transform: scale(.9); }
+
+/* ---------- 通用按钮：按下回弹 ---------- */
+.gbtn, .btn, .iact, .chip, .tag-add, .preset {
+  transition: background-color var(--t1) linear,
+              border-color var(--t1) linear,
+              color var(--t1) linear,
+              transform 130ms var(--sp-soft);
+}
+.gbtn:active, .btn:active, .iact:active, .preset:active { transform: scale(.955); }
+.chip:active { transform: scale(.96); }
+.chip.pop { animation: chipPop 220ms var(--sp); }
+@keyframes chipPop {
+  50% { transform: scale(1.07); }
+}
+
+/* ---------- 侧栏 / 标签页 ---------- */
+.side-item {
+  transition: background-color var(--t1) linear, color var(--t1) linear,
+              transform var(--t1) var(--sp-soft);
+}
+.side-item:active { transform: scale(.985); }
+.tab { transition: background-color var(--t1) linear, transform 130ms var(--sp-soft); }
+.tab:active { transform: scale(.975); }
+
+/* ---------- 右键菜单 ---------- */
+.menu { animation: menuIn 150ms var(--sp) backwards; }
+@keyframes menuIn {
+  from { opacity: 0; transform: scale(.94); }
+  to   { opacity: 1; transform: none; }
+}
+.menu-item { transition: background-color 110ms linear; }
+
+/* ---------- 命令面板 ---------- */
+.pal-box { animation: palIn 220ms var(--sp) backwards; }
+@keyframes palIn {
+  from { opacity: 0; transform: translateY(-10px) scale(.972); }
+  to   { opacity: 1; transform: none; }
+}
+.pal-item { transition: background-color 120ms linear; }
+
+/* ---------- 弹层 ---------- */
+.sheet { animation: sheetPop 260ms var(--sp) backwards; }
+@keyframes sheetPop {
+  from { opacity: 0; transform: translateY(12px) scale(.972); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- 快速预览 ---------- */
+#quicklook .ql-inner { animation: qlIn 280ms var(--sp) backwards; }
+@keyframes qlIn {
+  from { opacity: 0; transform: scale(.968); }
+  to   { opacity: 1; transform: none; }
+}
+#quicklook .ql-inner > img { animation: qlImg 420ms var(--sp) backwards; }
+@keyframes qlImg {
+  from { opacity: 0; transform: scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- 提示条 ---------- */
+.toast { animation: toastIn 300ms var(--sp) both; }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(14px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- 开关：滑块回弹 ---------- */
+.switch::after { transition: transform 260ms var(--sp); }
+.switch:active::after { transform: scaleX(1.14); }
+.switch.on:active::after { transform: translateX(16px) scaleX(1.14); }
+
+/* ---------- 状态：索引扫描中的呼吸灯 ---------- */
+.index-pill.scanning .led { animation: ledPulse 1.6s ease-in-out infinite; }
+@keyframes ledPulse {
+  0%, 100% { opacity: .4; transform: scale(.86); }
+  50%      { opacity: 1;  transform: scale(1.12); }
+}
+
+/* ---------- 拖放目标 ---------- */
+.drop-target { animation: dropPulse 1.2s ease-in-out infinite; }
+@keyframes dropPulse {
+  50% { box-shadow: inset 0 0 0 2px var(--accent); }
+}
+
+/* ---------- 信息面板内容切换 ---------- */
+#inspector-scroll { transition: opacity var(--t1) linear; }
+#inspector.renew #inspector-scroll { animation: inspIn 260ms var(--sp) backwards; }
+@keyframes inspIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- 自检：把全部动效放慢，便于截图验收 ---------- */
+body.slowmo *,
+body.slowmo *::after {
+  animation-duration: 2.4s !important;
+  transition-duration: 2.4s !important;
+  animation-delay: 0ms !important;
+}
+
+/* ---------- 尊重系统的"减少动态效果" ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

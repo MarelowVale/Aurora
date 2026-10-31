@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 
 namespace Aurora;
@@ -169,6 +170,15 @@ public partial class MainWindow : Window
         if (_hwnd != IntPtr.Zero)
         {
             DwmSetWindowAttribute(_hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref corner, sizeof(int));
+        }
+
+        // 从任务栏还原（或任何方式回到 Normal）时，让页面播一段"展开"动效
+        if (WindowState == WindowState.Normal)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _ = WindowActions.EvalAsync("window.__onRestore && window.__onRestore()");
+            }), DispatcherPriority.Background);
         }
     }
 
@@ -414,5 +424,11 @@ public static class WindowActions
         {
             return "eval-error: " + ex.Message;
         }
+    }
+
+    /// <summary>开发/自检用：调整窗口整体不透明度，用来验证 WebView2 是否会跟着淡出。</summary>
+    public static void SetOpacity(double value)
+    {
+        Run(w => w.Opacity = Math.Clamp(value, 0, 1));
     }
 }

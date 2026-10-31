@@ -202,6 +202,8 @@ async function boot() {
   S.tabIndex = 0;
   await navigate(start, { push: true });
   renderTabs();
+  // 首屏出现动画结束就摘掉 in，避免它一直占着 animation-fill 的终态
+  setTimeout(() => $('#app')?.classList.remove('in'), 460);
   pollIndex();
   setInterval(pollIndex, 4000);
 }
@@ -410,6 +412,50 @@ function scrollIntoView(path) {
 }
 function cssEsc(s) { return String(s).replace(/["\\]/g, '\\$&'); }
 
+/* ---------------------------- 动效 ---------------------------- */
+const MOTION = window.matchMedia('(prefers-reduced-motion: reduce)');
+function motionOff() { return MOTION.matches; }
+
+/** 让容器里的元素依次入场：--i 决定延迟档位（16ms 一档，最多 12 档） */
+function stagger(host) {
+  if (!host || motionOff()) return;
+  const kids = Array.from(host.children).slice(0, 30);
+  kids.forEach((k, i) => {
+    k.style.setProperty('--i', String(Math.min(i, 12)));
+    k.classList.add('anim');
+  });
+}
+
+/** 一次性脉冲（按下、选中、切换筛选）——结束后自动移除类名，避免影响悬停态 */
+function pulse(node, cls = 'pop') {
+  if (!node || motionOff()) return;
+  node.classList.remove(cls);
+  void node.offsetWidth;
+  node.classList.add(cls);
+  node.addEventListener('animationend', () => node.classList.remove(cls), { once: true });
+}
+
+/** 重播一段一次性动画（窗口出现、还原、面板刷新） */
+function replay(node, cls, ms = 420) {
+  if (!node || motionOff()) return;
+  node.classList.remove(cls);
+  void node.offsetWidth;
+  node.classList.add(cls);
+  clearTimeout(node._replayTimer);
+  node._replayTimer = setTimeout(() => node.classList.remove(cls), ms);
+}
+
+/* 从最小化/任务栏还原时由宿主调用 */
+window.__onRestore = () => {
+  const app = $('#app');
+  if (!app) return;
+  app.classList.remove('collapsing');
+  replay(app, 'restoring', 380);
+};
+
+/* 自检：把全部动效慢放，便于截图验收 */
+window.__slow = (on = true) => document.body.classList.toggle('slowmo', !!on);
+
 function clickEntry(e, ev) {
   const v = visibleEntries();
   const i = v.findIndex((x) => samePath(x.p, e.p));
@@ -425,6 +471,8 @@ function clickEntry(e, ev) {
     S.anchor = i; S.cursor = i;
     setSelection([e.p], i);
   }
+  // 选中脉冲：让被点的单元格轻轻弹一下
+  pulse($(`#content [data-path="${cssEsc(e.p)}"]`), 'pop');
 }
 
 /* ---------------------------- 渲染 ---------------------------- */
@@ -651,6 +699,11 @@ function renderFilters() {
   }
   host.innerHTML = '';
   host.appendChild(frag);
+  // 切换筛选时让选中的 chip 弹一下（初次渲染不算，用 lastFilter 对比）
+  if (host._lastFilter !== undefined && host._lastFilter !== S.filter) {
+    pulse(host.querySelector('.chip.on'), 'pop');
+  }
+  host._lastFilter = S.filter;
 }
 
 /* ---------- 内容区 ---------- */
@@ -674,6 +727,8 @@ function renderContent() {
         ? `<div class="et">${ui('search')}</div><div class="t">没有找到“${esc(S.query)}”</div><div class="s">试试更短的关键词，或用 AI 搜索</div>`
         : `<div class="et">${ui('folder')}</div><div class="t">此文件夹为空</div><div class="s">拖入文件，或按 Ctrl+Shift+N 新建文件夹</div>`;
     host.appendChild(emp);
+    emp.classList.add('anim');
+    emp.style.setProperty('--i', '0');
     return;
   }
 
@@ -689,12 +744,14 @@ function renderContent() {
 
   const batch = 240;
   let i = 0;
+  let firstBatch = true;
   const add = () => {
     if (token !== renderToken) return;
     const end = Math.min(v.length, i + batch);
     const frag = document.createDocumentFragment();
     for (; i < end; i++) frag.appendChild(S.view === 'grid' ? gridCell(v[i]) : listRow(v[i]));
     host.appendChild(frag);
+    if (firstBatch) { firstBatch = false; stagger(host); }
     if (i < v.length) requestAnimationFrame(add);
   };
   add();
@@ -770,7 +827,18 @@ function highlight(text, q) {
 }
 
 /* ---------- 信息面板 ---------- */
+let inspSig = null;
 function renderInspector() {
+  renderInspectorInner();
+  // 只有"选中对象真的变了"才播滑入，方向键快速连按时不会抖
+  const sig = selectedEntries().map((e) => e.p).join('|');
+  if (sig !== inspSig) {
+    inspSig = sig;
+    if (S.inspector) replay($('#inspector'), 'renew', 320);
+  }
+}
+
+function renderInspectorInner() {
   const host = $('#inspector-scroll');
   if (!S.inspector) { host.innerHTML = ''; return; }
   const sel = selectedEntries();
@@ -984,7 +1052,16 @@ async function pollIndex() {
 function wireChrome() {
   const win = (a) => api('/api/window/' + a, {}).catch(() => {});
   $('#tl-close').addEventListener('click', () => win('close'));
-  $('#tl-min').addEventListener('click', () => win('min'));
+  $('#tl-min').addEventListener('click', () => {
+    const app = $('#app');
+    if (!app || motionOff()) { win('min'); return; }
+    app.classList.add('collapsing');
+    // 先让画面收 168ms，再真正最小化；还原时由宿主调 window.__onRestore 展开
+    setTimeout(() => {
+      win('min');
+      setTimeout(() => app.classList.remove('collapsing'), 320);
+    }, 168);
+  });
   $('#tl-max').addEventListener('click', () => win('max'));
   $('#drag-region').addEventListener('dblclick', () => win('max'));
   $('#drag-region').addEventListener('mousedown', (e) => {
@@ -1353,6 +1430,8 @@ function openMenu(x, y, items) {
   const py = Math.min(y, window.innerHeight - r.height - 10);
   m.style.left = Math.max(8, px) + 'px';
   m.style.top = Math.max(8, py) + 'px';
+  // 从被点击的方向弹出：菜单靠近右下角时，缩放原点跟着翻转
+  m.style.transformOrigin = `${x > window.innerWidth / 2 ? '100%' : '0'} ${y > window.innerHeight / 2 ? '100%' : '0'}`;
   setTimeout(() => {
     document.addEventListener('mousedown', onDocDownMenu, true);
     document.addEventListener('contextmenu', onDocDownMenu, true);
@@ -2515,7 +2594,7 @@ function paintAbout(host) {
     <div class="about">
       <img class="about-icon" src="app-icon.png" alt="Aurora" />
       <div class="about-name">Aurora</div>
-      <div class="about-ver">版本 ${esc(S.boot?.version || '1.0.0')} · 为 D 盘打造的文件工作台</div>
+      <div class="about-ver">版本 ${esc(S.boot?.version || '1.1.0')} · 为 D 盘打造的文件工作台</div>
       <div class="about-rows">
         <div class="insp-row"><span class="k">安装位置</span><span class="v wrap">${esc(S.boot?.installPath || '便携运行')}</span></div>
         <div class="insp-row"><span class="k">数据目录</span><span class="v wrap">%LOCALAPPDATA%\\Aurora</span></div>

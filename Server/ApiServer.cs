@@ -561,6 +561,12 @@ public sealed class ApiServer : IAsyncDisposable
             return Results.Ok(new { ok = true, result });
         });
 
+        app.MapGet("/api/dev/opacity", (double v) =>
+        {
+            WindowActions.SetOpacity(v);
+            return Results.Ok(new { ok = true, opacity = v });
+        });
+
         app.MapGet("/api/dev/win", () =>
         {
             var w = WindowActions.Host;

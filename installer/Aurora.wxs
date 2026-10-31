@@ -4,14 +4,14 @@
 
   构建：
     .\build\tools\wix.exe build installer\Aurora.wxs -arch x64 `
-        -d PublishDir=build\publish -o build\Aurora-1.0.0-x64.msi
+        -d PublishDir=build\publish -o build\Aurora-1.1.0-x64.msi
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
   <Package Name="Aurora 文件管理器"
            Manufacturer="Aurora"
-           Version="1.0.0"
+           Version="1.1.0"
            UpgradeCode="7C4E1B62-9A5D-4F3E-B1C8-2D6A0E5F3B47"
            Scope="perUserOrMachine"
            Compressed="yes"

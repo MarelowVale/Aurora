@@ -14,13 +14,13 @@
 
 | 文件 | 用途 |
 | --- | --- |
-| `Aurora-1.0.0-x64.msi` | 安装包（推荐）。双击即可，**无需管理员权限**，默认装到 `%LOCALAPPDATA%\Programs\Aurora`；会建开始菜单和桌面快捷方式，可在「设置 → 应用」里卸载 |
-| `Aurora-1.0.0-portable-x64.zip` | 便携版。解压到任意目录，双击 `Aurora.exe` 即用，不写注册表、不建快捷方式 |
+| `Aurora-1.1.0-x64.msi` | 安装包（推荐）。双击即可，**无需管理员权限**，默认装到 `%LOCALAPPDATA%\Programs\Aurora`；会建开始菜单和桌面快捷方式，可在「设置 → 应用」里卸载 |
+| `Aurora-1.1.0-portable-x64.zip` | 便携版。解压到任意目录，双击 `Aurora.exe` 即用，不写注册表、不建快捷方式 |
 
 两个包都是**自包含**的（内置 .NET 10 运行时），目标机器只需有 WebView2 运行时（Windows 11 自带，Windows 10 多半也已随 Edge 安装）。
 
 > 校验：`SHA256SUMS.txt` 里是上面两个文件的 SHA-256。
-> 卸载：`msiexec /x Aurora-1.0.0-x64.msi`，或在「设置 → 应用 → 已安装的应用 → Aurora 文件管理器」里点卸载。卸载只删程序，不动 `%LOCALAPPDATA%\Aurora` 里的设置与索引。
+> 卸载：`msiexec /x Aurora-1.1.0-x64.msi`，或在「设置 → 应用 → 已安装的应用 → Aurora 文件管理器」里点卸载。卸载只删程序，不动 `%LOCALAPPDATA%\Aurora` 里的设置与索引。
 
 ---
 
@@ -155,6 +155,26 @@ macOS 27（Golden Gate，2026 秋）的兼容列表里**只有 Apple Silicon 机
 | 文件类型彩色图标 | [vscode-icons](https://github.com/vscode-icons/vscode-icons) | MIT |
 | 文件夹 / 磁盘 / 星标 / 常用位置 | 自绘渐变 | 随本项目 |
 
+### 动效
+
+动效全部做在**页面层**（CSS `transform` / `opacity`），因为 WebView2 有自己的合成层，WPF 窗口级的透明度动画盖不住它——这一点是实测确认过的，不是没试。
+
+统一的手感参数：阻尼回弹曲线 `cubic-bezier(.34, 1.42, .64, 1)`，时长 150 / 240 / 320 ms，位移不超过 10 px，缩放不超过 3%。只做"有重量的小动作"，不做炫技。
+
+| 场景 | 行为 |
+|---|---|
+| 窗口出现 | 整体从下方 10 px 浮起 + 轻微放大淡入（320 ms） |
+| 最小化 | 先向内收 8 px 并淡出（168 ms），再交给系统最小化 |
+| 还原 | 从 .968 倍展开回原尺寸（300 ms），宿主 `OnStateChanged` 通知页面播放 |
+| 进目录 | 网格/列表项按 16 ms 阶梯依次浮入，最多 12 档，超过部分同批出现 |
+| 单击 / 选中 | 单元格 1.028 倍脉冲一次；检查器内容从右侧滑入 8 px |
+| 悬停 | 单元格抬升 2 px、图标放大 4.5%，按钮组统一按下 0.955 缩放 |
+| 右键菜单 | 从点击的那一角缩放展开（靠近屏幕右下时翻转原点） |
+| 命令面板 / 对话框 / 快速预览 / Toast | 各自独立的小幅弹入 |
+| 索引进度 | 扫描中指示灯呼吸 |
+
+两个自检开关：`prefers-reduced-motion` 系统设置下全部动效归零；页面里 `window.__slow(true)` 可把所有时长放大到 2.4 s 便于逐帧看。
+
 图标在构建期由 `tools/gen-icons.mjs` 从本地 npm 包抽取、合并成一个 `web/icons.js` 内联分发，**运行期不联网**。
 
 ```
@@ -185,7 +205,7 @@ cd installer
 wix build Aurora.wxs -arch x64 ^
   -bindpath "publish=..\build\publish" ^
   -ext WixToolset.UI.wixext -culture zh-CN ^
-  -o ..\build\Aurora-1.0.0-x64.msi
+  -o ..\build\Aurora-1.1.0-x64.msi
 ```
 
 版本号只有一个来源：`Aurora.csproj` 里的 `<Version>`。它在编译期写入程序集，运行期既用于 `Aurora.exe` 的"文件属性"，也由 `/api/bootstrap` 提供给"设置 → 关于"显示。改版本时同步改 `installer\Aurora.wxs` 的 `Package Version`（MSI 的升级判定依赖它）。

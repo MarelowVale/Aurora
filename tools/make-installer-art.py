@@ -80,7 +80,7 @@ def make_dialog() -> Image.Image:
     f_word = load_font(24)
     ww = d.textlength(word, font=f_word)
     d.text((493 - 26 - ww, 206), word, font=f_word, fill=(52, 54, 66))
-    ver = "v1.0.0"
+    ver = "v1.1.0"
     f_ver = load_font(12)
     vw = d.textlength(ver, font=f_ver)
     d.text((493 - 26 - vw, 240), ver, font=f_ver, fill=(130, 134, 148))
